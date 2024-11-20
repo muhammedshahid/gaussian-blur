@@ -2,6 +2,9 @@
 
 This project applies a **Gaussian blur** to an uploaded image using JavaScript. Users can adjust the blur radius and sigma to control the intensity of the effect. The project generates a **Pascal Gaussian Kernel** dynamically for the blurring process.
 
+## Live Demo
+- https://muhammedshahid.github.io/gaussian-blur/
+
 ## Key Features
 - **Image Upload**: Users can upload images to apply the Gaussian blur.
 - **Adjustable Parameters**: 
