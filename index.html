@@ -220,8 +220,8 @@
         const canvas = drawImgOnCanvas(orgImg)
         const ctx = canvas.getContext('2d')
         const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
-        const blur = gaussianBlur(imageData, 3, 30)
-        showCase(rootDiv.id, imageDataToDataUrl(blur), 'Blur')
+        const blur = gaussianBlur(imageData, 2, 10)
+        showCase(rootDiv.id, imageDataToDataUrl(blur), 'Gaussian Blur')
       }
 
       // Event listener to handle file input
