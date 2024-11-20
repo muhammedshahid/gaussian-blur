@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Histogram</title>
+    <style>
+      /* Gallery Styles */
+      /* #output-container {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+        gap: 20px;
+        padding: 20px;
+      } */
+
+      div.root-gallery {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+        gap: 20px;
+        padding: 20px;
+      }
+
+      .image-container {
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        overflow: hidden;
+        text-align: center;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+      }
+
+      .image-title {
+        font-size: 16px;
+        font-weight: bold;
+        padding: 10px;
+        background-color: #f8f8f8;
+        color: #333;
+        border-bottom: 1px solid #ddd;
+      }
+
+      .resized-image {
+        width: 100%; /* Full width of the container */
+        height: auto; /* Maintain aspect ratio */
+        display: block;
+      }
+
+      /* Canvas Styles */
+      #canvas {
+        border: 1px solid #000;
+        margin-top: 20px;
+        max-width: 100%;
+        height: auto;
+      }
+
+      body {
+        font-family: Arial, sans-serif;
+        padding: 20px;
+      }
+
+      button {
+        margin-top: 10px;
+        padding: 10px 20px;
+        font-size: 16px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Gaussian blur with auto kernel</h1>
+    <input type="file" id="fileInput" accept="image/*" />
+    <div id="output-container"></div>
+
+    <script>
+      const fileInput = document.querySelector('#fileInput')
+
+      function createGroup(id) {
+        const rootDiv = document.createElement('div')
+        rootDiv.id = `root-${id}`
+        rootDiv.innerHTML = `<button>Blur</button><div class='root-gallery'></div>`
+        document.querySelector('#output-container').appendChild(rootDiv)
+        return rootDiv.id
+      }
+
+      function showCase(rootDivId, dataURL, titleText) {
+        // Create a container div to hold the title and image
+        const container = document.createElement('div')
+        container.classList.add('image-container')
+
+        // Create a title element
+        const title = document.createElement('div')
+        title.classList.add('image-title')
+        title.textContent = titleText
+
+        // Create an image element
+        const img = document.createElement('img')
+        img.src = dataURL
+        img.alt = 'Image'
+        img.classList.add('resized-image')
+
+        // Append the title and image to the container
+        container.appendChild(title)
+        container.appendChild(img)
+
+        // Append the container to the output area
+        const rootDiv = document.getElementById(rootDivId)
+        rootDiv.querySelector('.root-gallery').appendChild(container)
+      }
+
+      function drawImgOnCanvas(img) {
+        const canvas = document.createElement('canvas')
+        // use simple height & width for faster raster
+        canvas.width = img.naturalWidth //naturalWidth
+        canvas.height = img.naturalHeight //naturalHeight
+        const ctx = canvas.getContext('2d')
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+        return canvas
+      }
+
+      function imageDataToDataUrl(imageData) {
+        // Create a canvas element
+        const canvas = document.createElement('canvas')
+        canvas.width = imageData.width
+        canvas.height = imageData.height
+        const ctx = canvas.getContext('2d')
+
+        // Put the ImageData onto the canvas
+        ctx.putImageData(imageData, 0, 0)
+
+        // Convert the canvas to a Data URL
+        const dataURL = canvas.toDataURL('image/png') // You can specify 'image/jpeg' if preferred
+        return dataURL
+      }
+
+
+      function createPascalGaussianKernel(radius, sigma) {
+        // Step 1: Generate the Pascal's triangle row
+        function generatePascalRow(n) {
+          let row = [1]
+          for (let k = 1; k <= n; k++) {
+            row.push((row[k - 1] * (n - k + 1)) / k)
+          }
+          return row
+        }
+
+        // Step 2: Create the kernel
+        let kernel = []
+        for (let y = -radius; y <= radius; y++) {
+          let row = []
+          let pascalRow = generatePascalRow(radius * 2) // Get the Pascal row (binomial coefficients)
+          for (let x = -radius; x <= radius; x++) {
+            // Apply Gaussian formula: G(x, y) = e^(-(x^2 + y^2) / 2*sigma^2)
+            let distance = Math.sqrt(x * x + y * y)
+            let gaussian = Math.exp(
+              -(distance * distance) / (2 * sigma * sigma)
+            )
+            let pascalValue = pascalRow[x + radius] * pascalRow[y + radius]
+            row.push(Math.round(pascalValue * gaussian)) // Combine Pascal and Gaussian
+          }
+          kernel.push(row)
+        }
+
+        return {kernel: kernel, kernelSize: kernel.length}
+      }
+
+      // Function to apply Gaussian Blur
+      function gaussianBlur(imageData, radius, sigma ) {        
+        // radius determine kernel row & sigma determine blurness 
+        const {kernel, kernelSize} = createPascalGaussianKernel(radius, sigma)
+        console.log(kernel, kernelSize)
+        // const kernel = [
+        //   [1, 4, 6, 4, 1],
+        //   [4, 16, 24, 16, 4],
+        //   [6, 24, 36, 24, 6],
+        //   [4, 16, 24, 16, 4],
+        //   [1, 4, 6, 4, 1]
+        // ]
+
+        const width = imageData.width
+        const height = imageData.height
+        const data = imageData.data
+        const half = Math.floor(kernelSize / 2)
+        const kernelSum = kernel.flat().reduce((a, b) => a + b, 0)
+        const output = new Uint8ClampedArray(data.length) // copy of imagedata
+
+        for (let y = 0; y < height; y++) {
+          for (let x = 0; x < width; x++) {
+            let r = 0,
+              g = 0,
+              b = 0
+
+            for (let ky = -half; ky <= half; ky++) {
+              for (let kx = -half; kx <= half; kx++) {
+                const px = x + kx
+                const py = y + ky
+
+                if (px >= 0 && px < width && py >= 0 && py < height) {
+                  const offset = (py * width + px) * 4
+                  const weight = kernel[ky + half][kx + half]
+
+                  r += data[offset] * weight
+                  g += data[offset + 1] * weight
+                  b += data[offset + 2] * weight
+                }
+              }
+            }
+
+            const idx = (y * width + x) * 4
+            // copy of imagedata
+            output[idx] = r / kernelSum
+            output[idx + 1] = g / kernelSum
+            output[idx + 2] = b / kernelSum
+            output[idx + 3] = data[idx + 3] // Alpha remains unchanged
+           
+          }
+        }
+        return new ImageData(output, width, height)        
+      }
+
+      function applyGaussianBlur() {
+        const rootDiv = this.parentNode
+        const orgImg = rootDiv.querySelector('img')
+        const canvas = drawImgOnCanvas(orgImg)
+        const ctx = canvas.getContext('2d')
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
+        const blur = gaussianBlur(imageData, 3, 30)
+        showCase(rootDiv.id, imageDataToDataUrl(blur), 'Blur')
+      }
+
+      // Event listener to handle file input
+      fileInput.addEventListener('change', event => {
+        const file = event.target.files[0]
+        if (!file) return
+        const reader = new FileReader()
+
+        reader.onload = function (e) {
+          const img = new Image()
+          img.onload = function () {
+            const rootDivId = createGroup(
+              `${file.name.toLowerCase()}-${new Date().getTime()}`
+            )
+            const button = document
+              .getElementById(rootDivId)
+              .querySelector('button')
+            showCase(rootDivId, img.src, 'Original Image')
+            button.addEventListener('click', applyGaussianBlur)
+          }
+          img.src = e.target.result
+        }
+        reader.readAsDataURL(file)
+      })
+    </script>
+  </body>
+</html>
