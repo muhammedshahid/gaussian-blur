@@ -22,7 +22,7 @@ This project applies a **Gaussian blur** to an uploaded image using JavaScript. 
 ## How to Use
 - Clone the repository:
    ```bash
-   git clone https://github.com/your-username/gaussian-blur-js.git
+   git clone https://github.com/muhammedshahid/gaussian-blur.git
 - Open index.html in a browser.
 - Upload an image using the upload button.
 - Adjust the radius and sigma sliders to customize the blur.
